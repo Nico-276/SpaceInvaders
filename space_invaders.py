@@ -2,13 +2,15 @@ import pygame
 import sys
 
 
-class Game():
+class Game(pygame.sprite.Sprite):
     def __init__(self):
+        super(Game, self).__init__()
         self.resolution = (640, 480)
         self.windowsize = pygame.display.set_mode(self.resolution, 0, 32)
         self.surface = pygame.Surface(self.windowsize.get_size())
         self.surface = self.surface.convert()
         self.level = 1
+        self.rect = self.surface.get_rect()
 
     def level_up(self, level):
         return level+1
@@ -36,18 +38,20 @@ class Ship(pygame.sprite.Sprite):
         self.windowsize = windowsize
         self.score = 0
         self.image = pygame.image.load("ship.png").convert_alpha()
-        self.image = pygame.transform.scale(self.image, (self.image.get_size()[0]//10, self.image.get_size()[1]//10))
-        self.position = [self.windowsize[0]//2, self.windowsize[1] - self.image.get_size()[1]]
+        self.image = pygame.transform.scale(self.image, (self.image.get_size()[0]//20, self.image.get_size()[1]//20))
+        self.position = [self.windowsize[0]//2, (self.windowsize[1] - self.image.get_size()[1]) - 20]
         self.direction = ""
-        self.ship_lasers = []
         self.rect = self.image.get_rect(center=self.position)
+        self.all_lasers = pygame.sprite.GroupSingle()
 
     def move(self):
         if self.direction == "left":
-            self.position[0] += -1
+            self.position[0] += -7
+            self.rect = self.image.get_rect(center=self.position)
             self.direction = ""
         elif self.direction == "right":
-            self.position[0] += 1
+            self.position[0] += 7
+            self.rect = self.image.get_rect(center=self.position)
             self.direction = ""
 
     def fire(self):
@@ -66,7 +70,8 @@ class Ship(pygame.sprite.Sprite):
                     pygame.quit()
                     sys.exit()
                 elif event.key == pygame.K_SPACE:
-                    self.ship_lasers.append(Laser(self.position))
+                    if len(self.all_lasers) == 0:
+                        self.all_lasers.add(Laser(self.position, self.rect.topright))
             keys = pygame.key.get_pressed()
             if keys[pygame.K_a]:
                 self.direction = "left"
@@ -75,20 +80,20 @@ class Ship(pygame.sprite.Sprite):
 
 
 class Laser(pygame.sprite.Sprite):
-    def __init__(self, ship_position):
+    def __init__(self, ship_position, ship_rect):
         super().__init__()
         self.position = ship_position[:] # copying the list so they dont refer to the same memory
+        self.position[0] = ship_rect[0] - 7
         self.position[1] = self.position[1] - 10
         self.image = pygame.image.load("coca_cola.png").convert_alpha()
-        self.image = pygame.transform.scale(self.image, (self.image.get_size()[0]//10, self.image.get_size()[1]//10))
+        self.image = pygame.transform.scale(self.image, (self.image.get_size()[0] // 60, self.image.get_size()[1] // 60))
         self.rect = self.image.get_rect(center=self.position)
 
-    def move(self):
+    def update(self, surface, ship):
         self.position[1] = self.position[1] - 10
-
-    def draw(self, surface):
         surface.blit(self.image, self.position)
-
+        if self.position[1] < 0:
+            self.kill()
 
 
 def main():
@@ -102,13 +107,9 @@ def main():
         ship.draw(game.surface)
         ship.handle_keys()
         ship.move()
-        if len(ship.ship_lasers) > 0:
-            for x in ship.ship_lasers:
-                x.draw(game.surface)
-                x.move()
-            for x in ship.ship_lasers:
-                if x.position[1] < 0:
-                    pass
+        if len(ship.all_lasers) > 0:
+            for x in ship.all_lasers:
+                x.update(game.surface, ship)
         game.windowsize.blit(game.surface, (0, 0))
         pygame.display.update()
 
