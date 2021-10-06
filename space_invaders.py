@@ -72,11 +72,11 @@ class Ship(pygame.sprite.Sprite):
                 elif event.key == pygame.K_SPACE:
                     if len(self.all_lasers) == 0:
                         self.all_lasers.add(Laser(self.position, self.rect.topright))
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_a]:
-                self.direction = "left"
-            elif keys[pygame.K_d]:
-                self.direction = "right"
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_a]:
+            self.direction = "left"
+        elif keys[pygame.K_d]:
+            self.direction = "right"
 
 
 class Laser(pygame.sprite.Sprite):
