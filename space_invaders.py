@@ -46,11 +46,11 @@ class Ship(pygame.sprite.Sprite):
 
     def move(self):
         if self.direction == "left":
-            self.position[0] += -7
+            self.position[0] += -5
             self.rect = self.image.get_rect(center=self.position)
             self.direction = ""
         elif self.direction == "right":
-            self.position[0] += 7
+            self.position[0] += 5
             self.rect = self.image.get_rect(center=self.position)
             self.direction = ""
 
@@ -60,7 +60,7 @@ class Ship(pygame.sprite.Sprite):
     def draw(self, surface):
         surface.blit(self.image, self.position)
 
-    def handle_keys(self):
+    def handle_keys(self, resolution):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -73,10 +73,12 @@ class Ship(pygame.sprite.Sprite):
                     if len(self.all_lasers) == 0:
                         self.all_lasers.add(Laser(self.position, self.rect.topright))
         keys = pygame.key.get_pressed()
-        if keys[pygame.K_a]:
-            self.direction = "left"
-        elif keys[pygame.K_d]:
-            self.direction = "right"
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
+            if 5 <= self.position[0]:
+                self.direction = "left"
+        elif keys[pygame.K_d] or keys[pygame.K_RIGHT]:
+            if self.position[0] <= resolution[0] * 0.9:
+                self.direction = "right"
 
 
 class Laser(pygame.sprite.Sprite):
@@ -91,9 +93,35 @@ class Laser(pygame.sprite.Sprite):
 
     def update(self, surface, ship):
         self.position[1] = self.position[1] - 10
+        self.rect = self.image.get_rect(center=self.position)
         surface.blit(self.image, self.position)
         if self.position[1] < 0:
             self.kill()
+
+
+class Alien(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        super().__init__()
+        self.position = [x, y]
+        self.image = pygame.image.load("enemy.png").convert_alpha()
+        self.image = pygame.transform.scale(self.image, (self.image.get_size()[0] // 9, self.image.get_size()[1] // 9))
+        self.rect = self.image.get_rect(center=self.position)
+        self.direction = "right"
+
+    def update(self, surface, resolution, enemy_group, all_lasers):
+        if self.direction == "right":
+            self.position[0] = self.position[0] + 0.5
+            if self.position[0] >= resolution[0] - self.rect.width:
+                self.position[1] += self.rect.height + 5
+                self.direction = "left"
+        else:
+            self.position[0] = self.position[0] - 0.5
+            if self.position[0] <= 0:
+                self.position[1] += self.rect.height + 5
+                self.direction = "right"
+        self.rect = self.image.get_rect(center=self.position)
+        pygame.sprite.groupcollide(all_lasers, enemy_group, True, True)
+        surface.blit(self.image, self.position)
 
 
 def main():
@@ -101,15 +129,27 @@ def main():
     game = Game()
     settings = Settings()
     ship = Ship(game.windowsize.get_size())
+    test_alien = Alien(0, 0)
+    enemy_group = pygame.sprite.Group()
     while True:
+        if len(enemy_group) < 1:
+            y_spawn = game.resolution[1] // 40
+            for alienspawn_row in range(4):
+                center_x_coordinate = game.resolution[0] // 2
+                center_x_coordinate -= test_alien.rect.width * 4 - 10 * 3
+                y_spawn += test_alien.rect.height + 5
+                for alienspawn_coloumn in range(7):
+                    enemy_group.add(Alien(center_x_coordinate, y_spawn))
+                    center_x_coordinate += test_alien.rect.width + 10
         settings.clock.tick(100)
         settings.draw(game.resolution, game.surface)
         ship.draw(game.surface)
-        ship.handle_keys()
+        ship.handle_keys(game.resolution)
         ship.move()
         if len(ship.all_lasers) > 0:
             for x in ship.all_lasers:
                 x.update(game.surface, ship)
+        enemy_group.update(game.surface, game.resolution, enemy_group, ship.all_lasers)
         game.windowsize.blit(game.surface, (0, 0))
         pygame.display.update()
 
