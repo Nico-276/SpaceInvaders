@@ -1,5 +1,4 @@
-import pygame
-import sys
+import pygame, sys, random
 
 
 class Game(pygame.sprite.Sprite):
@@ -11,9 +10,45 @@ class Game(pygame.sprite.Sprite):
         self.surface = self.surface.convert()
         self.level = 1
         self.rect = self.surface.get_rect()
+        self.settings = Settings()
+        self.ship_group = pygame.sprite.GroupSingle()
+        self.ship = Ship(self.windowsize.get_size())
+        self.ship_group.add(self.ship)
+        self.image = pygame.image.load("bg.jpg").convert_alpha()
+        self.all_bullets = pygame.sprite.GroupSingle()
 
     def level_up(self, level):
         return level+1
+
+    def update(self, enemy_group):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    pygame.quit()
+                    sys.exit()
+                elif event.key == pygame.K_SPACE:
+                    self.ship.fire()
+        keys = pygame.key.get_pressed()
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
+            if 5 <= self.ship.position[0]:
+                self.ship.direction = "left"
+        elif keys[pygame.K_d] or keys[pygame.K_RIGHT]:
+            if self.ship.position[0] <= self.resolution[0] * 0.9:
+                self.ship.direction = "right"
+        self.surface.blit(self.image, (0, 0))
+        self.ship.draw(self.surface)
+        self.ship.move()
+        if len(self.ship.all_lasers) > 0:
+            for x in self.ship.all_lasers:
+                x.update(self.surface)
+        random_number = random.randint(0, len(enemy_group)-1)
+        if len(self.all_bullets) < 1:
+            self.all_bullets.add(Bullet(enemy_group.sprites()[random_number].position, enemy_group.sprites()[random_number].rect.topright))
+        pygame.sprite.groupcollide(self.ship_group, self.all_bullets, True, True)
+
 
 
 class Settings():
@@ -55,30 +90,11 @@ class Ship(pygame.sprite.Sprite):
             self.direction = ""
 
     def fire(self):
-        pass
+        if len(self.all_lasers) == 0:
+            self.all_lasers.add(Laser(self.position, self.rect.topright))
 
     def draw(self, surface):
         surface.blit(self.image, self.position)
-
-    def handle_keys(self, resolution):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    pygame.quit()
-                    sys.exit()
-                elif event.key == pygame.K_SPACE:
-                    if len(self.all_lasers) == 0:
-                        self.all_lasers.add(Laser(self.position, self.rect.topright))
-        keys = pygame.key.get_pressed()
-        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            if 5 <= self.position[0]:
-                self.direction = "left"
-        elif keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            if self.position[0] <= resolution[0] * 0.9:
-                self.direction = "right"
 
 
 class Laser(pygame.sprite.Sprite):
@@ -91,7 +107,7 @@ class Laser(pygame.sprite.Sprite):
         self.image = pygame.transform.scale(self.image, (self.image.get_size()[0] // 60, self.image.get_size()[1] // 60))
         self.rect = self.image.get_rect(center=self.position)
 
-    def update(self, surface, ship):
+    def update(self, surface):
         self.position[1] = self.position[1] - 10
         self.rect = self.image.get_rect(center=self.position)
         surface.blit(self.image, self.position)
@@ -124,34 +140,48 @@ class Alien(pygame.sprite.Sprite):
         surface.blit(self.image, self.position)
 
 
+class Bullet(pygame.sprite.Sprite):
+    def __init__(self, enemy_position, enemy_rect):
+        super(Bullet, self).__init__()
+        self.position = enemy_position[:]
+        self.position[0] = enemy_rect[0] + 7
+        self.position[1] = self.position[1] + 10
+        self.image = pygame.image.load("bullet.png").convert_alpha()
+        self.image = pygame.transform.scale(self.image, (self.image.get_size()[0] // 10, self.image.get_size()[1] // 10))
+        self.rect = self.image.get_rect(center=self.position)
+
+    def update(self, surface, y_height):
+        self.position[1] = self.position[1] + 2.5
+        self.rect = self.image.get_rect(center=self.position)
+        surface.blit(self.image, self.position)
+        if self.position[1] > y_height:
+            self.kill()
+
+
 def main():
     pygame.init()
-    game = Game()
-    settings = Settings()
-    ship = Ship(game.windowsize.get_size())
     test_alien = Alien(0, 0)
-    enemy_group = pygame.sprite.Group()
     while True:
-        if len(enemy_group) < 1:
-            y_spawn = game.resolution[1] // 40
-            for alienspawn_row in range(4):
-                center_x_coordinate = game.resolution[0] // 2
-                center_x_coordinate -= test_alien.rect.width * 4 - 10 * 3
-                y_spawn += test_alien.rect.height + 5
-                for alienspawn_coloumn in range(7):
-                    enemy_group.add(Alien(center_x_coordinate, y_spawn))
-                    center_x_coordinate += test_alien.rect.width + 10
-        settings.clock.tick(100)
-        settings.draw(game.resolution, game.surface)
-        ship.draw(game.surface)
-        ship.handle_keys(game.resolution)
-        ship.move()
-        if len(ship.all_lasers) > 0:
-            for x in ship.all_lasers:
-                x.update(game.surface, ship)
-        enemy_group.update(game.surface, game.resolution, enemy_group, ship.all_lasers)
-        game.windowsize.blit(game.surface, (0, 0))
-        pygame.display.update()
+        game = Game()
+        enemy_group = pygame.sprite.Group()
+        while True:
+            game.settings.clock.tick(100)
+            if len(enemy_group) < 1:
+                y_spawn = game.resolution[1] // 40
+                for alienspawn_row in range(4):
+                    center_x_coordinate = game.resolution[0] // 2
+                    center_x_coordinate -= test_alien.rect.width * 4 - 10 * 3
+                    y_spawn += test_alien.rect.height + 5
+                    for alienspawn_coloumn in range(7):
+                        enemy_group.add(Alien(center_x_coordinate, y_spawn))
+                        center_x_coordinate += test_alien.rect.width + 10
+            game.update(enemy_group)
+            enemy_group.update(game.surface, game.resolution, enemy_group, game.ship.all_lasers)
+            game.all_bullets.update(game.surface, game.resolution[1])
+            game.windowsize.blit(game.surface, (0, 0))
+            pygame.display.update()
+            if len(game.ship_group) < 1:
+                break
 
 
 main()
