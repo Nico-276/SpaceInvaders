@@ -1,27 +1,29 @@
 import pygame, sys, random
 
 
-class Game(pygame.sprite.Sprite):
+class Game():
     def __init__(self):
-        super(Game, self).__init__()
         self.resolution = (640, 480)
         self.windowsize = pygame.display.set_mode(self.resolution, 0, 32)
         self.surface = pygame.Surface(self.windowsize.get_size())
         self.surface = self.surface.convert()
-        self.level = 1
+        self.image = pygame.image.load("bg.jpg").convert_alpha()
+        self.settings = Settings(self.resolution)
+        self.settings.red_button.update(self.surface, self.image, self.windowsize, self.resolution)
         self.score = 0
         self.rect = self.surface.get_rect()
-        self.settings = Settings()
         self.enemy_group = pygame.sprite.Group()
         self.test_alien = Alien(0, 0)
         self.ship_group = pygame.sprite.GroupSingle()
         self.ship = Ship(self.windowsize.get_size())
         self.ship_group.add(self.ship)
-        self.image = pygame.image.load("bg.jpg").convert_alpha()
         self.all_bullets = pygame.sprite.GroupSingle()
-
-    def level_up(self, level):
-        return level+1
+        self.barrier_dummy = Barrier(0, 0)
+        self.barrier_list = pygame.sprite.Group()
+        x_coordinate = (self.resolution[0] - self.barrier_dummy.rect.width * 2) // 3
+        y_coordinate = self.resolution[1] - self.ship.rect.height * 3
+        for x in range (2):
+            self.barrier_list.add(Barrier(x_coordinate + self.barrier_dummy.rect.width * (x+0.5) + x_coordinate * x, y_coordinate))
 
     def update(self):
         for event in pygame.event.get():
@@ -64,23 +66,54 @@ class Game(pygame.sprite.Sprite):
         pygame.sprite.groupcollide(self.ship_group, self.all_bullets, True, True)
         self.enemy_group.update(self.surface, self.resolution, self.enemy_group)
         self.all_bullets.update(self.surface, self.resolution[1])
+        self.barrier_list.update(self.surface)
+        for x in pygame.sprite.groupcollide(self.barrier_list, self.all_bullets, False, True):
+            x.lives -= 1
+        for x in pygame.sprite.groupcollide(self.barrier_list, self.ship.all_lasers, False, True):
+            x.lives -= 1
         pygame.sprite.groupcollide(self.ship_group, self.enemy_group, True, True)
 
 
 class Settings():
-    def __init__(self):
+    def __init__(self, resolution):
         self.clock = pygame.time.Clock()
         self.difficulty = "Easy"
+        self.red_button = Start_Button(resolution)
 
-    def open(self):
-        pass
 
-    def pause_game(self):
-        pass
+class Start_Button(pygame.sprite.Sprite):
+    def __init__(self, game_resolution):
+        super(Start_Button, self).__init__()
+        self.resolution = game_resolution
+        self.image = pygame.image.load("start_button.png").convert_alpha()
+        self.image = pygame.transform.scale(self.image, (self.image.get_size()[0]//2, self.image.get_size()[1]//2))
+        self.position = [game_resolution[0] // 2, 400]
+        self.rect = self.image.get_rect(center=self.position)
 
-    def draw(self, resolution, surface):
-        r = pygame.Rect((0, 0), resolution)
-        pygame.draw.rect(surface, (0, 0, 0), r)
+    def update(self, surface, game_image, windowsize, resolution):
+        start = False
+        myfont = pygame.font.SysFont("arial black", 60)
+        screen = pygame.display.set_mode((resolution), 0, 32)
+        title_text = myfont.render(f"SPACE INVADERS", True, (118, 238, 198))
+        while True:
+            windowsize.blit(surface, (0, 0))
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                elif event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        pygame.quit()
+                        sys.exit()
+                    elif event.key == pygame.K_RETURN:
+                        start = True
+            if start:
+                break
+            screen.blit(title_text, (30, 100))
+            surface.blit(game_image, (0, 0))
+            surface.blit(self.image, self.rect)
+            pygame.display.update()
+
 
 
 class Ship(pygame.sprite.Sprite):
@@ -178,6 +211,22 @@ class Bullet(pygame.sprite.Sprite):
             self.kill()
 
 
+class Barrier(pygame.sprite.Sprite):
+    def __init__(self, x_pos, y_pos):
+        super(Barrier, self).__init__()
+        self.position = [x_pos, y_pos]
+        self.lives = 10
+        self.image = pygame.image.load("Barrier.png").convert_alpha()
+        self.image = pygame.transform.scale(self.image, (self.image.get_size()[0], self.image.get_size()[1]))
+        self.rect = self.image.get_rect(center=self.position)
+
+    def update(self, surface):
+        if self.lives > 0:
+            surface.blit(self.image, self.rect)
+        else:
+            self.kill()
+
+
 def main():
     pygame.init()
     highscore = 0
@@ -189,8 +238,8 @@ def main():
             game.settings.clock.tick(100)
             game.update()
             game.windowsize.blit(game.surface, (0, 0))
-            highscore_text = myfont.render(f"Highscore: {highscore}", 1, (238, 0, 0))
-            score_text = myfont.render(f"Score: {game.score}", 1, (118, 238, 198))
+            highscore_text = myfont.render(f"Highscore: {highscore}", True, (238, 0, 0))
+            score_text = myfont.render(f"Score: {game.score}", True, (118, 238, 198))
             screen.blit(highscore_text, (5, 10))
             screen.blit(score_text, (5, 30))
             pygame.display.update()
