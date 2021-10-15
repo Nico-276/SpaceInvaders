@@ -9,11 +9,11 @@ class Game():
         self.surface = self.surface.convert()
         self.image = pygame.image.load("bg.jpg").convert_alpha()
         self.settings = Settings(self.resolution)
-        self.settings.red_button.update(self.surface, self.image, self.windowsize, self.resolution)
+        self.settings.start_button.update(self.surface, self.image, self.windowsize, self.resolution)
         self.score = 0
         self.rect = self.surface.get_rect()
         self.enemy_group = pygame.sprite.Group()
-        self.test_alien = Alien(0, 0)
+        self.dummy_alien = Alien(0, 0)
         self.ship_group = pygame.sprite.GroupSingle()
         self.ship = Ship(self.windowsize.get_size())
         self.ship_group.add(self.ship)
@@ -47,11 +47,11 @@ class Game():
             y_spawn = self.resolution[1] // 40
             for alienspawn_row in range(4):
                 center_x_coordinate = self.resolution[0] // 2
-                center_x_coordinate -= self.test_alien.rect.width * 4 - 10 * 3
-                y_spawn += self.test_alien.rect.height + 5
+                center_x_coordinate -= self.dummy_alien.rect.width * 4 - 10 * 3
+                y_spawn += self.dummy_alien.rect.height + 5
                 for alienspawn_coloumn in range(7):
                     self.enemy_group.add(Alien(center_x_coordinate, y_spawn))
-                    center_x_coordinate += self.test_alien.rect.width + 10
+                    center_x_coordinate += self.dummy_alien.rect.width + 10
         self.surface.blit(self.image, (0, 0))
         self.ship.draw(self.surface)
         self.ship.move()
@@ -77,8 +77,7 @@ class Game():
 class Settings():
     def __init__(self, resolution):
         self.clock = pygame.time.Clock()
-        self.difficulty = "Easy"
-        self.red_button = Start_Button(resolution)
+        self.start_button = Start_Button(resolution)
 
 
 class Start_Button(pygame.sprite.Sprite):
