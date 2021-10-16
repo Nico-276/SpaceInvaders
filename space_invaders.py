@@ -2,6 +2,9 @@ import pygame, sys, random
 
 
 class Game():
+    """
+    Author: Nico
+    """
     def __init__(self):
         self.resolution = (640, 480)
         self.windowsize = pygame.display.set_mode(self.resolution, 0, 32)
@@ -23,6 +26,8 @@ class Game():
         x_coordinate = (self.resolution[0] - self.barrier_dummy.rect.width * 2) // 3
         y_coordinate = self.resolution[1] - self.ship.rect.height * 3
         for x in range (2):
+            print(x_coordinate + self.barrier_dummy.rect.width * (x+0.5) + x_coordinate * x)
+            print(self.resolution[1] - self.ship.rect.height * 3)
             self.barrier_list.add(Barrier(x_coordinate + self.barrier_dummy.rect.width * (x+0.5) + x_coordinate * x, y_coordinate))
 
     def update(self):
@@ -43,6 +48,9 @@ class Game():
         elif keys[pygame.K_d] or keys[pygame.K_RIGHT]:
             if self.ship.rect.x <= self.resolution[0] * 0.9:
                 self.ship.direction = "right"
+        self.surface.blit(self.image, (0, 0))
+        self.ship.move()
+        self.ship.draw(self.surface)
         if len(self.enemy_group) < 1:
             y_spawn = self.resolution[1] // 40
             for alienspawn_row in range(4):
@@ -52,35 +60,41 @@ class Game():
                 for alienspawn_coloumn in range(7):
                     self.enemy_group.add(Alien(center_x_coordinate, y_spawn))
                     center_x_coordinate += self.dummy_alien.rect.width + 10
-        self.surface.blit(self.image, (0, 0))
-        self.ship.draw(self.surface)
-        self.ship.move()
         if len(self.ship.all_lasers) > 0:
             for x in self.ship.all_lasers:
                 x.update(self.surface)
-        random_number = random.randint(0, len(self.enemy_group)-1)
         if len(self.all_bullets) < 1:
+            random_number = random.randint(0, len(self.enemy_group)-1)
             self.all_bullets.add(Bullet(self.enemy_group.sprites()[random_number].rect.center))
+        else:
+            self.all_bullets.update(self.surface, self.resolution[1])
+        self.enemy_group.update(self.surface, self.resolution, self.enemy_group)
         for x in pygame.sprite.groupcollide(self.ship.all_lasers, self.enemy_group, True, True):
             self.score += 10
         pygame.sprite.groupcollide(self.ship_group, self.all_bullets, True, True)
-        self.enemy_group.update(self.surface, self.resolution, self.enemy_group)
-        self.all_bullets.update(self.surface, self.resolution[1])
-        self.barrier_list.update(self.surface)
         for x in pygame.sprite.groupcollide(self.barrier_list, self.all_bullets, False, True):
             x.lives -= 1
         for x in pygame.sprite.groupcollide(self.barrier_list, self.ship.all_lasers, False, True):
             x.lives -= 1
+        for x in pygame.sprite.groupcollide(self.barrier_list, self.enemy_group, False, True):
+            x.lives -= 10
+        self.barrier_list.update(self.surface)
         pygame.sprite.groupcollide(self.ship_group, self.enemy_group, True, True)
 
 
 class Settings():
+    """
+    Author: Ayberk
+    """
     def __init__(self, resolution):
         self.clock = pygame.time.Clock()
         self.start_button = Start_Button(resolution)
 
 
 class Start_Button(pygame.sprite.Sprite):
+    """
+    Author: Ayberk
+    """
     def __init__(self, game_resolution):
         super(Start_Button, self).__init__()
         self.resolution = game_resolution
@@ -94,7 +108,7 @@ class Start_Button(pygame.sprite.Sprite):
         myfont = pygame.font.SysFont("arial black", 60)
         screen = pygame.display.set_mode((resolution), 0, 32)
         title_text = myfont.render(f"SPACE INVADERS", True, (118, 238, 198))
-        while True:
+        while not start:
             windowsize.blit(surface, (0, 0))
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -106,20 +120,20 @@ class Start_Button(pygame.sprite.Sprite):
                         sys.exit()
                     elif event.key == pygame.K_RETURN:
                         start = True
-            if start:
-                break
-            screen.blit(title_text, (30, 100))
             surface.blit(game_image, (0, 0))
+            screen.blit(title_text, (30, 100))
             surface.blit(self.image, self.rect)
             pygame.display.update()
 
 
 
 class Ship(pygame.sprite.Sprite):
+    """
+    Author: Ayberk
+    """
     def __init__(self, windowsize):
         super().__init__()
         self.windowsize = windowsize
-        self.score = 0
         self.image = pygame.image.load("ship.png").convert_alpha()
         self.image = pygame.transform.scale(self.image, (self.image.get_size()[0]//20, self.image.get_size()[1]//20))
         self.position = [self.windowsize[0]//2, (self.windowsize[1] - self.image.get_size()[1]) - 20]
@@ -144,6 +158,9 @@ class Ship(pygame.sprite.Sprite):
 
 
 class Laser(pygame.sprite.Sprite):
+    """
+    Author: Ayberk
+    """
     def __init__(self, ship_position, ship_rect, ship_width):
         super().__init__()
         self.position = ship_position[:] # copying the list so they dont refer to the same memory
@@ -162,6 +179,9 @@ class Laser(pygame.sprite.Sprite):
 
 
 class Alien(pygame.sprite.Sprite):
+    """
+    Author: Nico
+    """
     def __init__(self, x, y):
         super().__init__()
         self.position = [x, y]
@@ -172,28 +192,28 @@ class Alien(pygame.sprite.Sprite):
         self.move_denier = True
 
     def update(self, surface, resolution, enemy_group):
-        if self.direction == "right":
-            if self.move_denier:
+        if self.move_denier:
+            if self.direction == "right":
                 self.rect.x += 1
                 self.move_denier = False
                 if self.rect.x >= resolution[0] - self.rect.width:
                     self.rect.y += self.rect.height + 5
                     self.direction = "left"
             else:
-                self.move_denier = True
-        else:
-            if self.move_denier:
                 self.rect.x -= 1
                 self.move_denier = False
                 if self.rect.x <= 0:
                     self.rect.y += self.rect.height + 5
                     self.direction = "right"
-            else:
-                self.move_denier = True
+        else:
+            self.move_denier = True
         surface.blit(self.image, self.rect)
 
 
 class Bullet(pygame.sprite.Sprite):
+    """
+    Author: Nico
+    """
     def __init__(self, enemy_rect):
         super(Bullet, self).__init__()
         self.position = [0, 0]
@@ -211,6 +231,9 @@ class Bullet(pygame.sprite.Sprite):
 
 
 class Barrier(pygame.sprite.Sprite):
+    """
+    Author: Nico
+    """
     def __init__(self, x_pos, y_pos):
         super(Barrier, self).__init__()
         self.position = [x_pos, y_pos]
@@ -227,6 +250,10 @@ class Barrier(pygame.sprite.Sprite):
 
 
 def main():
+    """
+    Author: Nico
+    :return: /
+    """
     pygame.init()
     highscore = 0
     while True:
